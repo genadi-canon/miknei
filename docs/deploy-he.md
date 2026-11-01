@@ -4,7 +4,7 @@
 
 1. **חשבון:** נכנסים ל-[vercel.com/signup](https://vercel.com/signup) ונרשמים עם GitHub (החשבון genadi-canon). התוכנית החינמית (Hobby) מספיקה.
 2. **ייבוא הפרויקט:** Add New → Project → בוחרים את `genadi-canon/miknei` → Import. אם Vercel מתחיל לבנות מיד והבנייה נכשלת, זה צפוי: עוד אין מסד נתונים.
-3. **מסד נתונים:** בפרויקט נכנסים ל-Storage → Create Database → Neon (Postgres) → Create, ומחברים לפרויקט. זה מגדיר אוטומטית את `DATABASE_URL` ואת `DATABASE_URL_UNPOOLED`.
+3. **מסד נתונים:** Prisma Postgres (מוצע כבר במסך הייבוא, Add) או Neon דרך Storage → Create Database. שניהם מגדירים אוטומטית את `DATABASE_URL`. אם אין `DATABASE_URL_UNPOOLED`, הבנייה משתמשת ב-`DATABASE_URL`.
 4. **משתני סביבה:** Settings → Environment Variables, ומוסיפים:
 
    | שם | ערך |
