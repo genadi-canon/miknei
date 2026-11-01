@@ -1,0 +1,100 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum KycStatus {
+  PENDING
+  APPROVED
+  REJECTED
+}
+
+// Lifecycle: LINKED -> AUTHORIZED -> CAPTURED | CANCELED. A LINKED deal can also be CANCELED by the seller.
+enum DealStatus {
+  LINKED
+  AUTHORIZED
+  CAPTURED
+  CANCELED
+}
+
+model Seller {
+  id                 String    @id @default(cuid())
+  phone              String    @unique // normalized, e.g. 0525550142
+  name               String?
+  nationalId         String?
+  businessId         String?
+  bankCode           String?
+  branch             String?
+  account            String?
+  kycStatus          KycStatus @default(PENDING)
+  providerMerchantId String?   @unique // sub-merchant id at the card processor; payouts go there, never to miknei
+  createdAt          DateTime  @default(now())
+  updatedAt          DateTime  @updatedAt
+  sessions           Session[]
+  deals              Deal[]
+}
+
+model OtpCode {
+  id        String   @id @default(cuid())
+  phone     String
+  codeHash  String
+  expiresAt DateTime
+  attempts  Int      @default(0)
+  usedAt    DateTime?
+  createdAt DateTime @default(now())
+
+  @@index([phone, createdAt])
+}
+
+model Session {
+  id        String   @id @default(cuid())
+  tokenHash String   @unique
+  sellerId  String
+  seller    Seller   @relation(fields: [sellerId], references: [id], onDelete: Cascade)
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+}
+
+model Deal {
+  id                String     @id @default(cuid())
+  code              String     @unique // public link: /p/<code>
+  sellerId          String
+  seller            Seller     @relation(fields: [sellerId], references: [id])
+  title             String
+  description       String     @default("")
+  delivery          String
+  priceAgorot       Int
+  status            DealStatus @default(LINKED)
+  installments      Int?
+  buyerPhone        String?
+  buyerTokenHash    String?    // the buyer's browser holds the token; only it may confirm or reject
+  checkoutId        String?    @unique
+  authorizationId   String?    // J5 authorization at the processor. miknei never sees card numbers.
+  cardLast4         String?
+  authorizedAt      DateTime?
+  holdUntil         DateTime?  // auto-capture after this time
+  capturedAt        DateTime?
+  canceledAt        DateTime?
+  cancelReason      String?
+  createdAt         DateTime   @default(now())
+  updatedAt         DateTime   @updatedAt
+  events            DealEvent[]
+
+  @@index([sellerId, createdAt])
+  @@index([status, holdUntil])
+}
+
+model DealEvent {
+  id        String   @id @default(cuid())
+  dealId    String
+  deal      Deal     @relation(fields: [dealId], references: [id], onDelete: Cascade)
+  type      String
+  data      Json?
+  createdAt DateTime @default(now())
+
+  @@index([dealId, createdAt])
+}
