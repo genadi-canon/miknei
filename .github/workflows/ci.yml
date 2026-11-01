@@ -1,0 +1,35 @@
+name: CI
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: miknei
+          POSTGRES_PASSWORD: miknei
+          POSTGRES_DB: miknei
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd "pg_isready -U miknei" --health-interval 5s --health-timeout 5s --health-retries 10
+    env:
+      DATABASE_URL: postgresql://miknei:miknei@localhost:5432/miknei
+      APP_URL: http://localhost:3000
+      PAYMENT_PROVIDER: mock
+      SMS_PROVIDER: mock
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npx prisma migrate deploy
+      - run: npm run lint
+      - run: npm test
+      - run: npm run build
