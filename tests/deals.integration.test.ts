@@ -1,7 +1,7 @@
 // Runs against the database in DATABASE_URL with the mock processor.
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { prisma } from "@/lib/db";
-import { autoCaptureDue, buyerConfirm, buyerReject, cancelBySeller, completeCheckout, createDeal, DealError, startCheckout } from "@/lib/deals";
+import { autoCaptureDue, buyerConfirm, captureIfDue, buyerReject, cancelBySeller, completeCheckout, createDeal, DealError, startCheckout } from "@/lib/deals";
 import { mockProvider } from "@/lib/payments/mock";
 import { submitSellerDetails } from "@/lib/sellers";
 
@@ -24,7 +24,7 @@ async function paidDeal(installments = 3, card = "4580111122221234") {
   const deal = await createDeal(sellerId, { title: "אופניים", description: "", delivery: "איסוף עצמי", priceAgorot: 200_000 });
   const { redirectUrl, buyerToken } = await startCheckout(deal.code, installments, "0521234567");
   const checkoutId = redirectUrl.split("/").pop()!;
-  mockProvider.submitCard(checkoutId, card);
+  await mockProvider.submitCard(checkoutId, card);
   const after = await completeCheckout(deal.code, checkoutId);
   return { deal: after, buyerToken };
 }
@@ -40,12 +40,12 @@ describe("deal flow", () => {
     expect(deal.status).toBe("AUTHORIZED");
     expect(deal.cardLast4).toBe("1234");
     expect(deal.installments).toBe(3);
-    expect(mockProvider.authState(deal.authorizationId!)?.state).toBe("held");
+    expect((await mockProvider.authState(deal.authorizationId!))?.state).toBe("held");
 
     await expect(buyerConfirm(deal.code, "wrong-token")).rejects.toBeInstanceOf(DealError);
     const done = await buyerConfirm(deal.code, buyerToken);
     expect(done.status).toBe("CAPTURED");
-    expect(mockProvider.authState(deal.authorizationId!)?.state).toBe("captured");
+    expect((await mockProvider.authState(deal.authorizationId!))?.state).toBe("captured");
     // second click is a no-op
     expect((await buyerReject(deal.code, buyerToken)).status).toBe("CAPTURED");
   });
@@ -54,7 +54,7 @@ describe("deal flow", () => {
     const { deal, buyerToken } = await paidDeal(1);
     const done = await buyerReject(deal.code, buyerToken);
     expect(done.status).toBe("CANCELED");
-    expect(mockProvider.authState(deal.authorizationId!)?.state).toBe("voided");
+    expect((await mockProvider.authState(deal.authorizationId!))?.state).toBe("voided");
   });
 
   it("stays LINKED when the card is declined", async () => {
@@ -75,6 +75,14 @@ describe("deal flow", () => {
     const r = await autoCaptureDue();
     expect(r.captured).toBeGreaterThanOrEqual(1);
     expect((await prisma.deal.findUniqueOrThrow({ where: { id: deal.id } })).status).toBe("CAPTURED");
+  });
+
+  it("captures on view once the hold window has passed", async () => {
+    const { deal } = await paidDeal();
+    expect((await captureIfDue(deal)).status).toBe("AUTHORIZED"); // still inside the window
+    const due = await prisma.deal.update({ where: { id: deal.id }, data: { holdUntil: new Date(Date.now() - 1000) } });
+    expect((await captureIfDue(due)).status).toBe("CAPTURED");
+    expect((await mockProvider.authState(deal.authorizationId!))?.state).toBe("captured");
   });
 
   it("confirm and auto-capture racing capture only once", async () => {

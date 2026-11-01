@@ -145,6 +145,17 @@ export async function buyerReject(code: string, buyerToken: string | undefined) 
   return claimed;
 }
 
+/** Capture one deal if its hold window has passed. Called when a deal page is viewed, so the cron is only a backstop. */
+export async function captureIfDue(deal: Deal): Promise<Deal> {
+  if (deal.status !== "AUTHORIZED" || !deal.holdUntil || deal.holdUntil > new Date()) return deal;
+  try {
+    return (await captureDeal(deal, "autoCapture")) ?? (await prisma.deal.findUniqueOrThrow({ where: { id: deal.id } }));
+  } catch (e) {
+    console.error("auto-capture on view failed", e);
+    return deal;
+  }
+}
+
 /** Run from a scheduler. Captures every authorization whose hold window has passed. */
 export async function autoCaptureDue(now = new Date()) {
   const due = await prisma.deal.findMany({ where: { status: "AUTHORIZED", holdUntil: { lte: now } }, take: 100 });

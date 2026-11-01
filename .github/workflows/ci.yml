@@ -19,6 +19,7 @@ jobs:
           --health-cmd "pg_isready -U miknei" --health-interval 5s --health-timeout 5s --health-retries 10
     env:
       DATABASE_URL: postgresql://miknei:miknei@localhost:5432/miknei
+      DATABASE_URL_UNPOOLED: postgresql://miknei:miknei@localhost:5432/miknei
       APP_URL: http://localhost:3000
       PAYMENT_PROVIDER: mock
       SMS_PROVIDER: mock

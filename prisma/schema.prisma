@@ -4,7 +4,9 @@ generator client {
 
 datasource db {
   provider = "postgresql"
-  url      = env("DATABASE_URL")
+  url       = env("DATABASE_URL")
+  // Migrations need a direct (non-pooled) connection. Locally it is the same URL.
+  directUrl = env("DATABASE_URL_UNPOOLED")
 }
 
 enum KycStatus {
@@ -97,4 +99,26 @@ model DealEvent {
   createdAt DateTime @default(now())
 
   @@index([dealId, createdAt])
+}
+
+// ---- Mock processor state (development and demo only). Kept in the DB so it works across serverless instances.
+model MockCheckout {
+  id              String   @id
+  dealId          String
+  merchantId      String
+  amountAgorot    Int
+  installments    Int
+  description     String
+  returnUrl       String
+  status          String   @default("pending") // pending | authorized | failed
+  authorizationId String?
+  cardLast4       String?
+  createdAt       DateTime @default(now())
+}
+
+model MockAuthorization {
+  id           String   @id
+  amountAgorot Int
+  state        String   // held | captured | voided
+  createdAt    DateTime @default(now())
 }

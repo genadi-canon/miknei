@@ -4,7 +4,7 @@ import { Header } from "@/components/Header";
 import { StatusChip } from "@/components/DealStatus";
 import { prisma } from "@/lib/db";
 import { HOLD_HOURS } from "@/lib/dealMachine";
-import { buyerCookie, isBuyer } from "@/lib/deals";
+import { buyerCookie, captureIfDue, isBuyer } from "@/lib/deals";
 import { formatIls, quote } from "@/lib/money";
 import { DecideForm } from "./DecideForm";
 import { PayForm } from "./PayForm";
@@ -19,8 +19,9 @@ function shortName(name: string | null) {
 export default async function BuyerPage({ params, searchParams }: { params: Promise<{ code: string }>; searchParams: Promise<{ failed?: string }> }) {
   const { code } = await params;
   const { failed } = await searchParams;
-  const d = await prisma.deal.findUnique({ where: { code }, include: { seller: { select: { name: true } } } });
-  if (!d) notFound();
+  const found = await prisma.deal.findUnique({ where: { code }, include: { seller: { select: { name: true } } } });
+  if (!found) notFound();
+  const d = { ...found, ...(await captureIfDue(found)) };
   const me = isBuyer(d, (await cookies()).get(buyerCookie(code))?.value);
   const seller = shortName(d.seller.name);
   const q = quote(d.priceAgorot, d.installments ?? 1);
