@@ -96,3 +96,4 @@ ol.track span { display: block; color: var(--muted); font-size: 0.85rem; }
 .deal-list .t b { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .steps { font-size: 0.8rem; color: var(--muted); }
 @media (max-width: 480px) { .row2 { grid-template-columns: 1fr; } }
+.demo-bar { margin: 0; background: var(--pop-bg); color: var(--pop); text-align: center; font-size: 0.85rem; font-weight: 600; padding: 8px 16px; }

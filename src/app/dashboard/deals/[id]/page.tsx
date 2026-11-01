@@ -5,7 +5,7 @@ import { StatusChip, Track } from "@/components/DealStatus";
 import { SubmitButton } from "@/components/SubmitButton";
 import { currentSeller } from "@/lib/auth";
 import { prisma } from "@/lib/db";
-import { dealLink } from "@/lib/deals";
+import { captureIfDue, dealLink } from "@/lib/deals";
 import { formatIls, quote } from "@/lib/money";
 import { cancelDealAction } from "../../actions";
 
@@ -15,8 +15,9 @@ export default async function SellerDeal({ params }: { params: Promise<{ id: str
   const seller = await currentSeller();
   if (!seller) redirect("/signup");
   const { id } = await params;
-  const d = await prisma.deal.findFirst({ where: { id, sellerId: seller.id } });
-  if (!d) notFound();
+  const found = await prisma.deal.findFirst({ where: { id, sellerId: seller.id } });
+  if (!found) notFound();
+  const d = await captureIfDue(found);
   const url = dealLink(d.code);
   const q = d.installments ? quote(d.priceAgorot, d.installments) : null;
   const wa = `https://wa.me/?text=${encodeURIComponent(`קישור לתשלום עבור ${d.title}: ${url}`)}`;

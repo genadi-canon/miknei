@@ -13,13 +13,17 @@ MVP running against a **mock** card processor and a **mock** SMS sender. No real
 Requires Node 22+ and Postgres.
 
 ```bash
-cp .env.example .env          # set DATABASE_URL
+cp .env.example .env          # set DATABASE_URL and DATABASE_URL_UNPOOLED
 npm install
 npx prisma migrate dev        # creates tables
 npm run dev                   # http://localhost:3000
 ```
 
 In dev, OTP codes are shown on screen and printed to the server log (`[sms:mock]`). On the mock card page, any 12+ digit card is approved; `4000000000000002` is declined.
+
+## Deploy (demo)
+
+Vercel + Neon Postgres. Step-by-step in Hebrew: [docs/deploy-he.md](docs/deploy-he.md). The `vercel-build` script runs `prisma migrate deploy` before `next build`. Set `DEMO_MODE=1` to allow the mock processor and SMS in production; without it the app refuses to use them there.
 
 ## Tests
 
@@ -47,7 +51,7 @@ Transitions live in `src/lib/dealMachine.ts` and are applied with conditional up
 - `src/lib/deals.ts` deal service: create, checkout, confirm, reject, auto-capture
 - `src/lib/auth.ts` seller phone OTP login, session cookie
 - `src/app/` pages: `/signup`, `/dashboard`, `/p/[code]` (buyer), `/mock-checkout/[id]`
-- `src/app/api/cron/auto-capture` call every few minutes with `Authorization: Bearer $CRON_SECRET`
+- `src/app/api/cron/auto-capture` scheduled capture (Vercel Cron sends `Authorization: Bearer $CRON_SECRET`); deal pages also capture overdue holds when viewed
 
 ## Before production
 
