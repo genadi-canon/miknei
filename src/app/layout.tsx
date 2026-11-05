@@ -4,7 +4,7 @@ import { isDemo } from "@/lib/sms";
 
 export const metadata: Metadata = {
   title: "miknei",
-  description: "תשלום מאובטח ליד שנייה, גם בתשלומים. הכרטיס מחויב רק אחרי אישור קבלה.",
+  description: "תשלום מאובטח גם ביד שנייה, עד 6 תשלומים. הכרטיס מחויב רק אחרי אישור קבלה.",
 };
 export const viewport: Viewport = { width: "device-width", initialScale: 1 };
 
