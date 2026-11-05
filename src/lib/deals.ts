@@ -5,6 +5,7 @@ import { HOLD_HOURS, nextStatus, type DealAction, type DealStatus } from "./deal
 import { formatIls, MAX_INSTALLMENTS, MAX_PRICE_ILS, MIN_PRICE_ILS } from "./money";
 import { getProvider } from "./payments";
 import { getSms } from "./sms";
+import { normalizeMobile } from "./validation";
 
 export class DealError extends Error {}
 
@@ -53,6 +54,30 @@ export async function cancelBySeller(sellerId: string, dealId: string) {
   const done = await transition(deal, "sellerCancel", { canceledAt: new Date(), cancelReason: "seller" });
   if (!done) throw new DealError("אפשר לבטל רק קישור שעוד לא שולם.");
   return done;
+}
+
+export const MAX_LINK_SMS = 5;
+
+/** Seller sends the payment link to the buyer's phone. Returns the message text (shown on screen in a demo). */
+export async function sendLinkBySms(sellerId: string, dealId: string, rawPhone: string) {
+  const phone = normalizeMobile(rawPhone);
+  if (!phone) throw new DealError("מספר הנייד לא תקין. למשל 0501234567.");
+  const deal = await prisma.deal.findFirst({ where: { id: dealId, sellerId }, include: { seller: true } });
+  if (!deal) throw new DealError("העסקה לא נמצאה.");
+  if (deal.status !== "LINKED") throw new DealError("אפשר לשלוח רק קישור שעוד לא שולם.");
+  if (phone === deal.seller.phone) throw new DealError("זה המספר שלך. צריך להזין את המספר של הקונה.");
+  const sent = await prisma.dealEvent.count({ where: { dealId, type: "linkSms" } });
+  if (sent >= MAX_LINK_SMS) throw new DealError(`אפשר לשלוח את הקישור עד ${MAX_LINK_SMS} פעמים.`);
+  const from = deal.seller.name ? ` מ-${deal.seller.name}` : "";
+  const text = `miknei: קישור לתשלום${from} עבור ${deal.title}, ${formatIls(deal.priceAgorot)}: ${dealLink(deal.code)}`;
+  try {
+    await getSms().send(phone, text);
+  } catch (e) {
+    console.error("sms failed", e);
+    throw new DealError("שליחת ההודעה נכשלה. אפשר לנסות שוב או להעתיק את הקישור.");
+  }
+  await log(deal.id, "linkSms", { to: `***${phone.slice(-4)}` });
+  return { phone, text };
 }
 
 /** Buyer chose installments; send them to the processor's hosted card page. Returns redirect URL and a buyer token for a cookie. */
