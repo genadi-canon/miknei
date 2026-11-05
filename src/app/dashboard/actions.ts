@@ -2,7 +2,8 @@
 import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
 import { currentSeller } from "@/lib/auth";
-import { cancelBySeller, createDeal, DealError } from "@/lib/deals";
+import { cancelBySeller, createDeal, DealError, sendLinkBySms } from "@/lib/deals";
+import { showDevCodes } from "@/lib/sms";
 import { parseShekels } from "@/lib/money";
 
 async function requireApprovedSeller() {
@@ -41,4 +42,19 @@ export async function cancelDealAction(form: FormData) {
   const id = String(form.get("id"));
   try { await cancelBySeller(seller.id, id); } catch (e) { if (!(e instanceof DealError)) throw e; }
   revalidatePath(`/dashboard/deals/${id}`);
+}
+
+export type SendLinkState = { error?: string; sentTo?: string; demoText?: string; phone?: string; at?: number };
+
+export async function sendLinkAction(_prev: SendLinkState, form: FormData): Promise<SendLinkState> {
+  const seller = await requireApprovedSeller();
+  const phone = String(form.get("phone") ?? "");
+  const at = Date.now();
+  try {
+    const r = await sendLinkBySms(seller.id, String(form.get("id")), phone);
+    return { sentTo: r.phone, demoText: showDevCodes() ? r.text : undefined, at };
+  } catch (e) {
+    if (e instanceof DealError) return { error: e.message, phone, at };
+    throw e;
+  }
 }

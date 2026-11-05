@@ -8,6 +8,7 @@ import { prisma } from "@/lib/db";
 import { captureIfDue, dealLink } from "@/lib/deals";
 import { formatIls, quote } from "@/lib/money";
 import { cancelDealAction } from "../../actions";
+import { SendLinkForm } from "./SendLinkForm";
 
 export const dynamic = "force-dynamic";
 
@@ -30,6 +31,7 @@ export default async function SellerDeal({ params }: { params: Promise<{ id: str
         {d.status === "LINKED" && <>
           <CopyLink url={url} />
           <a className="btn quiet" href={wa} target="_blank" rel="noopener noreferrer">שליחה בוואטסאפ</a>
+          <SendLinkForm dealId={d.id} />
         </>}
         <div className="rows">
           <div className="r"><span>מחיר שקבעת</span><span className="num">{formatIls(d.priceAgorot)}</span></div>

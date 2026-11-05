@@ -93,3 +93,27 @@ describe("deal flow", () => {
     expect(events).toHaveLength(1);
   });
 });
+
+describe("send link by SMS", () => {
+  it("sends to a valid buyer phone, logs a masked number, and enforces limits", async () => {
+    const { sendLinkBySms, MAX_LINK_SMS } = await import("@/lib/deals");
+    const deal = await createDeal(sellerId, { title: "שולחן", description: "", delivery: "איסוף עצמי", priceAgorot: 30_000 });
+    await expect(sendLinkBySms(sellerId, deal.id, "123")).rejects.toBeInstanceOf(DealError);
+    await expect(sendLinkBySms(sellerId, deal.id, phone)).rejects.toBeInstanceOf(DealError);
+    await expect(sendLinkBySms("someone-else", deal.id, "0521234567")).rejects.toBeInstanceOf(DealError);
+    const r = await sendLinkBySms(sellerId, deal.id, "+972-52-123-4567");
+    expect(r.phone).toBe("0521234567");
+    expect(r.text).toContain(`/p/${deal.code}`);
+    expect(r.text).toContain("דנה מזרחי");
+    const ev = await prisma.dealEvent.findFirst({ where: { dealId: deal.id, type: "linkSms" } });
+    expect(ev?.data).toEqual({ to: "***4567" });
+    for (let i = 1; i < MAX_LINK_SMS; i++) await sendLinkBySms(sellerId, deal.id, "0521234567");
+    await expect(sendLinkBySms(sellerId, deal.id, "0521234567")).rejects.toThrow(/עד/);
+  });
+
+  it("refuses once the deal is no longer open", async () => {
+    const { sendLinkBySms } = await import("@/lib/deals");
+    const { deal } = await paidDeal();
+    await expect(sendLinkBySms(sellerId, deal.id, "0521234567")).rejects.toThrow(/שעוד לא שולם/);
+  });
+});
